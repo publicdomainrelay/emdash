@@ -69,7 +69,7 @@ export interface WorkerLoaderConfig {
 	/** Name of the main module (must be in modules) */
 	mainModule: string;
 	/** Map of module names to their code */
-	modules: Record<string, string | { js: string }>;
+	modules: Record<string, string | { js: string } | { wasm: ArrayBuffer }>;
 	/** Environment bindings to pass to the worker */
 	env?: Record<string, unknown>;
 	/**

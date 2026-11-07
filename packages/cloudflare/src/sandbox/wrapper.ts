@@ -65,6 +65,7 @@ export function generatePluginWrapper(manifest: PluginManifest, options?: Wrappe
 	const hasSchemaRead = capabilities.includes("schema:read");
 	const hasBylinesRead = capabilities.includes("bylines:read");
 	const hasRevisionRead = capabilities.includes("content:revisions:read");
+	const hasWasmExecute = capabilities.includes("wasm:execute");
 	const httpWireRuntimeSource = generatePluginHttpWireRuntimeSource();
 
 	return `
@@ -315,6 +316,27 @@ function createContext(env, originHook, invocationId, runtimeBridge) {
 		}
 	};
 	
+	const wasm = ${hasWasmExecute} ? {
+		run: async (request) => {
+			try {
+				return await bridge.wasmRun({
+					module: request?.module,
+					entry: request?.entry,
+					input: request?.input,
+					sha256: request?.sha256,
+				});
+			} catch (error) {
+				const message = error instanceof Error ? error.message : String(error);
+				const match = /^(?:[A-Za-z]*Error: )?(WASM_[A-Z_]+): ([\\s\\S]*)$/.exec(message);
+				if (!match) throw error;
+				throw Object.assign(new Error(match[1] + ": " + match[2]), {
+					name: "WasmRunError",
+					code: match[1],
+				});
+			}
+		}
+	} : undefined;
+
 	// Logger - proxies to bridge
 	const log = {
 		debug: (msg, data) => bridge.log("debug", msg, data),
@@ -381,6 +403,7 @@ function createContext(env, originHook, invocationId, runtimeBridge) {
 		redirects,
 		media,
 		http,
+		wasm,
 		log,
 		site,
 		url,

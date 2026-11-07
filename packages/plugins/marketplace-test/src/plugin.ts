@@ -1474,6 +1474,7 @@ const plugin: SandboxedPlugin = {
 					users: ctx.users !== undefined,
 					comments: ctx.comments !== undefined,
 					email: ctx.email !== undefined,
+					wasm: ctx.wasm !== undefined,
 				},
 			}),
 		},
@@ -1580,6 +1581,30 @@ const plugin: SandboxedPlugin = {
 					bytes: [...new Uint8Array(await response.arrayBuffer())],
 					cloneBytes: [...new Uint8Array(await clone.arrayBuffer())],
 				};
+			},
+		},
+		"wasm-run": {
+			handler: async (route, ctx) => {
+				if (
+					!isRecord(route.input) ||
+					!Array.isArray(route.input.module) ||
+					typeof route.input.entry !== "string"
+				) {
+					throw new Error("Expected WebAssembly module bytes and an entry export");
+				}
+				if (!ctx.wasm) throw new Error("ctx.wasm is unavailable");
+				try {
+					const output = await ctx.wasm.run({
+						module: new Uint8Array(route.input.module),
+						entry: route.input.entry,
+						input: route.input.input,
+						sha256: typeof route.input.sha256 === "string" ? route.input.sha256 : undefined,
+					});
+					return { ok: true, output };
+				} catch (error) {
+					const message = error instanceof Error ? error.message : String(error);
+					return { ok: false, message };
+				}
 			},
 		},
 	},

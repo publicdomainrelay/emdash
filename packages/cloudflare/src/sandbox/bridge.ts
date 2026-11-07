@@ -51,7 +51,8 @@ import {
 } from "emdash/plugins/secret-redactor";
 
 import { sandboxHttpFetch } from "./bridge-http.js";
-import type { RedirectBridgeResult, StorageUpdateIfResponse } from "./types.js";
+import { sandboxWasmRun } from "./bridge-wasm.js";
+import type { RedirectBridgeResult, StorageUpdateIfResponse, WorkerLoader } from "./types.js";
 
 let bridgeRuntimePromise: Promise<typeof import("./bridge-runtime.js")> | undefined;
 
@@ -372,6 +373,7 @@ export interface PluginBridgeEnv {
 	DB: D1Database;
 	MEDIA?: R2Bucket;
 	EMDASH_ENCRYPTION_KEY?: string;
+	LOADER?: WorkerLoader;
 }
 
 /**
@@ -1775,6 +1777,16 @@ export class PluginBridge extends WorkerEntrypoint<PluginBridgeEnv, PluginBridge
 			throw new Error("Plugin HTTP transport is unavailable");
 		}
 		return sandboxHttpFetch(url, init, { capabilities, allowedHosts, fetchImpl });
+	}
+
+	async wasmRun(request: {
+		module: Uint8Array;
+		entry: string;
+		input?: unknown;
+		sha256?: string;
+	}): Promise<unknown> {
+		this.requireCapability("wasm:execute");
+		return sandboxWasmRun(request, this.env.LOADER);
 	}
 
 	// =========================================================================
