@@ -62,6 +62,8 @@ import {
 } from "./probe-schema.js";
 import { stripBuildOnlyMcp } from "./runtime-source.js";
 
+const SANDBOX_CONDITIONS = ["workerd", "worker", "browser", "import", "default"];
+
 const PLUGIN_ENTRY_PATH = "src/plugin.ts";
 const PACKAGE_JSON_PATH = "package.json";
 
@@ -292,6 +294,7 @@ export async function probeAndAssemble(ctx: ProbeAndAssembleContext): Promise<Re
 			outDir: probeOutDir,
 			dts: false,
 			platform: "neutral",
+			inputOptions: { resolve: { conditionNames: SANDBOX_CONDITIONS } },
 			external: [],
 			noExternal: [
 				"emdash/plugin",
@@ -594,6 +597,7 @@ export async function buildRuntime(ctx: BuildRuntimeContext): Promise<RuntimeFil
 			outDir: runtimeOutDir,
 			dts: false,
 			platform: "neutral",
+			inputOptions: { resolve: { conditionNames: SANDBOX_CONDITIONS } },
 			external: [],
 			noExternal: [
 				"emdash/plugin",
