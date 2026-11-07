@@ -290,6 +290,33 @@ export default {
 };
 `;
 
+const STREAMS_PLUGIN = `
+class Passthrough extends TransformStream {
+	constructor() {
+		super({ transform(chunk, controller) { controller.enqueue(chunk); } });
+	}
+}
+export default {
+	hooks: {},
+	routes: {
+		"decode": {
+			handler: async (route) => {
+				const reader = new Response(route.input.text).body
+					.pipeThrough(new Passthrough())
+					.pipeThrough(new TextDecoderStream())
+					.getReader();
+				let text = "";
+				for (;;) {
+					const { done, value } = await reader.read();
+					if (done) return { text };
+					text += value;
+				}
+			}
+		}
+	}
+};
+`;
+
 const BINARY_HTTP_PLUGIN = `
 export default {
 	hooks: {},
@@ -953,6 +980,32 @@ describe.skipIf(!workerdAvailable)("WorkerdSandboxRunner integration", () => {
 				await expect(
 					denied.invokeRoute("run", { module: [...ECHO_MODULE], payload: 1 }, request),
 				).resolves.toEqual({ available: false });
+			} finally {
+				await sandbox.terminateAll();
+			}
+		},
+		30_000,
+	);
+
+	it.each(["workerd", "miniflare"])(
+		"pipes a JavaScript transform into a native TextDecoderStream (%s)",
+		async (runnerKind) => {
+			const sandbox =
+				runnerKind === "miniflare"
+					? new MiniflareDevRunner({ db })
+					: new WorkerdSandboxRunner({ db });
+			try {
+				const plugin = await sandbox.load(
+					{ id: "streams", version: "1.0.0", capabilities: [], allowedHosts: [], storage: {} },
+					STREAMS_PLUGIN,
+				);
+				await expect(
+					plugin.invokeRoute(
+						"decode",
+						{ text: '{"ok":true}' },
+						{ method: "POST", url: "/api/decode", headers: {} },
+					),
+				).resolves.toEqual({ text: '{"ok":true}' });
 			} finally {
 				await sandbox.terminateAll();
 			}

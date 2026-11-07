@@ -11,6 +11,8 @@
 
 import type { PluginManifest } from "emdash";
 
+import { SANDBOX_COMPATIBILITY_DATE, SANDBOX_COMPATIBILITY_FLAGS } from "./compatibility.js";
+
 /** For string values in capnp config (service/socket names) */
 const SAFE_NAME_RE = /[^a-z0-9_-]/gi;
 const NON_ALNUM_RE = /[^a-z0-9]+/i;
@@ -116,8 +118,8 @@ export function generateCapnpConfig(options: CapnpOptions): string {
 		lines.push(`    (name = "sandbox-plugin.js", esModule = embed "${pluginFile}"),`);
 		lines.push(`    (name = "emdash", esModule = embed "${emdashShimFile}"),`);
 		lines.push(`  ],`);
-		lines.push(`  compatibilityDate = "2025-01-01",`);
-		lines.push(`  compatibilityFlags = ["nodejs_compat"],`);
+		lines.push(`  compatibilityDate = "${SANDBOX_COMPATIBILITY_DATE}",`);
+		lines.push(`  compatibilityFlags = ${JSON.stringify(SANDBOX_COMPATIBILITY_FLAGS)},`);
 		// globalOutbound routes ALL outbound fetch() calls from the plugin
 		// through the backing service. This is intentional security posture:
 		//

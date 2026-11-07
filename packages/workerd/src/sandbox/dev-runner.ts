@@ -38,6 +38,7 @@ const DEFAULT_WALL_TIME_MS = 30_000;
 import type { PluginManifest } from "emdash";
 
 import { createBridgeHandler } from "./bridge-handler.js";
+import { SANDBOX_COMPATIBILITY_DATE, SANDBOX_COMPATIBILITY_FLAGS } from "./compatibility.js";
 import { generatePluginWrapper, parseRouteTransport, stringifyRouteTransport } from "./wrapper.js";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -244,6 +245,8 @@ export class MiniflareDevRunner implements SandboxRunner {
 			// Other calls pass through for network:request.
 			workerConfigs.push({
 				name: pluginId.replace(SAFE_ID_RE, "_"),
+				compatibilityDate: SANDBOX_COMPATIBILITY_DATE,
+				compatibilityFlags: SANDBOX_COMPATIBILITY_FLAGS,
 				// The wrapper imports "sandbox-plugin.js", so we provide both
 				// the wrapper as the main module and the plugin code as a
 				// named module that the wrapper can import.
