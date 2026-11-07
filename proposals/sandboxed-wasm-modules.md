@@ -16,7 +16,7 @@ The motivating case is an integrations plugin. It holds per-user atproto OAuth s
 
 ```jsonc
 {
-	"capabilities": ["wasm:execute", "network:request:unrestricted"]
+	"capabilities": ["wasm:execute", "network:request:unrestricted"],
 }
 ```
 
@@ -74,13 +74,13 @@ interface WasmAccess {
 
 ### Limits
 
-| Limit | Value |
-| --- | --- |
-| Module size | 4 MiB |
-| Input JSON | 1 MiB |
-| Output JSON | 1 MiB |
-| Linear memory | 64 MiB (1024 pages) |
-| Wall time per run | 5 s |
+| Limit             | Value               |
+| ----------------- | ------------------- |
+| Module size       | 4 MiB               |
+| Input JSON        | 1 MiB               |
+| Output JSON       | 1 MiB               |
+| Linear memory     | 64 MiB (1024 pages) |
+| Wall time per run | 5 s                 |
 
 ### Runners
 

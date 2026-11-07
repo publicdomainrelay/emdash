@@ -238,6 +238,7 @@ export function buildSerializableConfig(resolvedConfig: EmDashConfig): Record<st
 		admin: resolvedConfig.admin,
 		toolbar: resolvedConfig.toolbar,
 		updateCheck: resolvedConfig.updateCheck,
+		sandboxLimits: resolvedConfig.sandboxLimits,
 		objectCacheEnabled: resolvedConfig.objectCache !== undefined,
 	};
 }

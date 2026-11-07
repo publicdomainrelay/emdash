@@ -6,6 +6,12 @@ describe("buildSerializableConfig", () => {
 	it("passes the update-check opt-out to the runtime config", () => {
 		expect(buildSerializableConfig({ updateCheck: false }).updateCheck).toBe(false);
 	});
+
+	it("passes sandbox limits to the runtime config", () => {
+		expect(buildSerializableConfig({ sandboxLimits: { subrequests: 200 } }).sandboxLimits).toEqual({
+			subrequests: 200,
+		});
+	});
 });
 
 describe("updateCheck option", () => {
@@ -14,5 +20,14 @@ describe("updateCheck option", () => {
 			/updateCheck\.minimumReleaseAge.*soon/,
 		);
 		expect(() => emdash({ updateCheck: { minimumReleaseAge: "48h" } })).not.toThrow();
+	});
+});
+
+describe("sandboxLimits option", () => {
+	it("rejects a non-positive limit during integration setup", () => {
+		expect(() => emdash({ sandboxLimits: { subrequests: 0 } })).toThrow(
+			/sandboxLimits\.subrequests/,
+		);
+		expect(() => emdash({ sandboxLimits: { subrequests: 200, cpuMs: 500 } })).not.toThrow();
 	});
 });

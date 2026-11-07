@@ -3005,6 +3005,7 @@ export class EmDashRuntime {
 						beforeContentWrite: () => assertSiteWriteAllowed(db),
 						taxonomyWrite: createTaxonomyAccessWithWrite(db),
 						now: deps.now,
+						limits: deps.config.sandboxLimits,
 						mediaStorage: mediaStorage
 							? {
 									upload: (opts) =>
@@ -3162,6 +3163,7 @@ export class EmDashRuntime {
 						beforeContentWrite: () => assertSiteWriteAllowed(db),
 						taxonomyWrite: createTaxonomyAccessWithWrite(db),
 						now: deps.now,
+						limits: deps.config.sandboxLimits,
 						mediaStorage: {
 							upload: (opts) =>
 								storage.upload({

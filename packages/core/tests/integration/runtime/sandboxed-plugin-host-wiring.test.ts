@@ -227,6 +227,18 @@ describe("EmDashRuntime sandboxed plugin host wiring", () => {
 		expect(runtime.hooks.getHookCount("page:fragments")).toBe(0);
 	});
 
+	it("passes configured sandbox limits to the runner", async () => {
+		const createSandboxRunner = vi.fn(createDeps(vi.fn()).createSandboxRunner);
+		const limits = { cpuMs: 500, subrequests: 200 };
+		const deps = createDeps(vi.fn(), { createSandboxRunner });
+		runtime = await EmDashRuntime.create({
+			...deps,
+			config: { ...deps.config, sandboxLimits: limits },
+		});
+
+		expect(createSandboxRunner).toHaveBeenCalledWith(expect.objectContaining({ limits }));
+	});
+
 	it("applies every canonical capability implication before loading the sandbox", async () => {
 		const deps = createDeps(vi.fn(), {}, "sandbox-implications");
 		deps.sandboxedPluginEntries[0]!.capabilities = PLUGIN_CAPABILITY_IMPLICATIONS.map(

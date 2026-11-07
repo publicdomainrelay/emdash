@@ -39,6 +39,12 @@ const configShape = {
 	sandboxed: z.array(pluginDescriptor),
 	sandboxRunner: z.string(),
 	sandbox: z.boolean(),
+	sandboxLimits: z.object({
+		cpuMs: z.number().positive().optional(),
+		memoryMb: z.number().positive().optional(),
+		subrequests: z.number().int().positive().optional(),
+		wallTimeMs: z.number().positive().optional(),
+	}),
 	auth: descriptor("an auth adapter such as access()"),
 	authProviders: z.array(
 		z.custom<never>(

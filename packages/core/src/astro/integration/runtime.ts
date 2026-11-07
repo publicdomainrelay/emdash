@@ -14,6 +14,7 @@ import type { RuntimeMigrationConfig } from "../../database/migrations/policy.js
 import type { DatabaseDescriptor } from "../../db/adapters.js";
 import type { MediaProviderDescriptor } from "../../media/types.js";
 import type { ObjectCacheDescriptor } from "../../object-cache/types.js";
+import type { ResourceLimits } from "../../plugins/sandbox/types.js";
 import type {
 	FieldWidgetConfig,
 	PluginEditorAction,
@@ -308,6 +309,20 @@ export interface EmDashConfig {
 	 * @default true (sandboxing enabled if sandboxRunner is configured)
 	 */
 	sandbox?: boolean;
+
+	/**
+	 * Per-invocation resource limits for sandboxed plugins, applied by the
+	 * sandbox runner. Unset fields keep the runner's defaults.
+	 *
+	 * @example
+	 * ```ts
+	 * emdash({
+	 *   sandboxRunner: sandbox(),
+	 *   sandboxLimits: { cpuMs: 500, subrequests: 200 },
+	 * })
+	 * ```
+	 */
+	sandboxLimits?: ResourceLimits;
 
 	/**
 	 * Authentication configuration
