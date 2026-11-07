@@ -29,6 +29,7 @@ type ContextApiRoutes = {
 	redirects: Record<MethodKeys<NonNullable<PluginContext["redirects"]>>, string | null>;
 	media: Record<MethodKeys<NonNullable<PluginContext["media"]>>, string | null>;
 	http: Record<MethodKeys<NonNullable<PluginContext["http"]>>, string | null>;
+	wasm: Record<MethodKeys<NonNullable<PluginContext["wasm"]>>, string | null>;
 	users: Record<MethodKeys<NonNullable<PluginContext["users"]>>, string | null>;
 	comments: Record<MethodKeys<NonNullable<PluginContext["comments"]>>, string | null>;
 	cron: Record<MethodKeys<NonNullable<PluginContext["cron"]>>, string | null>;
@@ -85,6 +86,7 @@ const CONTEXT_API_ROUTES = {
 		delete: "media-exercise",
 	},
 	http: { fetch: "http-roundtrip" },
+	wasm: { run: "wasm-run" },
 	users: { get: "users-exercise", getByEmail: "users-exercise", list: "users-exercise" },
 	comments: {
 		get: "comments-read",
@@ -529,6 +531,7 @@ describe("registry fixture capability inventory", () => {
 				users: true,
 				comments: true,
 				email: true,
+				wasm: true,
 			},
 		});
 		await expect(
