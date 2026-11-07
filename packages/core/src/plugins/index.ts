@@ -186,6 +186,8 @@ export type {
 	MediaBytes,
 	MediaMetadataPatch,
 	HttpAccess,
+	WasmAccess,
+	WasmRunRequest,
 	LogAccess,
 	SiteInfo,
 	UserInfo,

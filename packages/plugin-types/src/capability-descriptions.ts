@@ -99,6 +99,10 @@ export const CAPABILITY_DESCRIPTIONS: Readonly<
 		label: "Make unrestricted network requests",
 		description: "Connect to any external host.",
 	},
+	"wasm:execute": {
+		label: "Run WebAssembly modules",
+		description: "Run WebAssembly modules the plugin loads, without network or storage access.",
+	},
 	"email:send": {
 		label: "Send email",
 		description: "Send email through your site’s configured mail service.",

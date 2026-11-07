@@ -78,6 +78,7 @@ export type PluginCapability =
 	| "hooks.email-transport:register" // exclusive `email:deliver` (transport)
 	| "hooks.email-events:register" // `email:beforeSend` / `email:afterSend`
 	| "hooks.page-fragments:register" // `page:fragments` (script/style injection)
+	| "wasm:execute"
 	// Deprecated aliases (kept for the deprecation window; warnings emitted at
 	// bundle time, hard fail at publish time).
 	| "network:fetch"
@@ -225,6 +226,7 @@ export interface DeclaredAccess {
 	email?: { send?: AccessConstraints; events?: AccessConstraints; transport?: AccessConstraints };
 	page?: { fragments?: AccessConstraints };
 	users?: { read?: AccessConstraints };
+	wasm?: { execute?: AccessConstraints };
 }
 
 /**
@@ -298,6 +300,7 @@ export function capabilitiesToDeclaredAccess(
 	if (caps.has("hooks.email-transport:register")) (out.email ??= {}).transport = {};
 	if (caps.has("hooks.page-fragments:register")) out.page = { fragments: {} };
 	if (caps.has("users:read")) out.users = { read: {} };
+	if (caps.has("wasm:execute")) out.wasm = { execute: {} };
 
 	return out;
 }
@@ -376,6 +379,7 @@ export function declaredAccessToCapabilities(declaredAccess: DeclaredAccess): {
 	if (declaredAccess.email?.transport) caps.add("hooks.email-transport:register");
 	if (declaredAccess.page?.fragments) caps.add("hooks.page-fragments:register");
 	if (declaredAccess.users?.read) caps.add("users:read");
+	if (declaredAccess.wasm?.execute) caps.add("wasm:execute");
 
 	return { capabilities: [...caps], allowedHosts };
 }

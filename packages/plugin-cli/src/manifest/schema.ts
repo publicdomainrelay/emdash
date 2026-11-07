@@ -382,6 +382,7 @@ const CURRENT_CAPABILITIES = new Set<string>([
 	"redirects:write",
 	"media:read",
 	"media:bytes:read",
+	"wasm:execute",
 	"media:metadata:write",
 	"media:write",
 	"users:read",

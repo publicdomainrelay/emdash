@@ -53,6 +53,7 @@ export interface CanonicalDeclaredAccess {
 		write?: CanonicalAccessConstraints;
 	}>;
 	readonly users?: Readonly<{ read?: CanonicalAccessConstraints }>;
+	readonly wasm?: Readonly<{ execute?: CanonicalAccessConstraints }>;
 }
 
 export type AccessChangeKind =

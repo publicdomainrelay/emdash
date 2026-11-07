@@ -52,6 +52,7 @@ export const CURRENT_PLUGIN_CAPABILITIES = [
 	"hooks.email-transport:register",
 	"hooks.email-events:register",
 	"hooks.page-fragments:register",
+	"wasm:execute",
 ] as const;
 
 /**
@@ -427,6 +428,7 @@ const declaredAccessSchema = z.object({
 		.optional(),
 	page: z.object({ fragments: accessConstraints.optional() }).optional(),
 	users: z.object({ read: accessConstraints.optional() }).optional(),
+	wasm: z.object({ execute: accessConstraints.optional() }).optional(),
 });
 
 // ── Main schema ─────────────────────────────────────────────────

@@ -45,12 +45,13 @@ import {
 } from "@emdash-cms/plugin-types";
 import type { JSX } from "astro/jsx-runtime";
 import type { z } from "astro/zod";
+
+import type { ContentFieldFilters } from "../content-list-query.js";
 // =============================================================================
 // Core Types
 // =============================================================================
-
-import type { ContentFieldFilters } from "../content-list-query.js";
 import type { FieldType, FieldValidation, FieldWidgetOptions } from "../schema/types.js";
+import type { WasmAccess } from "./wasm.js";
 
 export type {
 	ContentFieldFilterScalar,
@@ -933,6 +934,8 @@ export interface MediaAccessWithWrite extends MediaAccess {
 /**
  * HTTP client interface - requires network:request capability
  */
+export type { WasmAccess, WasmRunRequest } from "./wasm.js";
+
 export interface HttpAccess {
 	/**
 	 * Fetch an allowed external URL and return a buffered response.
@@ -1088,6 +1091,7 @@ export interface PluginContext<TStorage extends PluginStorageConfig = PluginStor
 
 	/** HTTP client - only if network:request capability */
 	http?: HttpAccess;
+	wasm?: WasmAccess;
 
 	/** Logger - always available */
 	log: LogAccess;

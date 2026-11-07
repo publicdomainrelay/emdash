@@ -371,6 +371,8 @@ export type {
 	MediaBytes,
 	MediaMetadataPatch,
 	HttpAccess,
+	WasmAccess,
+	WasmRunRequest,
 	PluginHttpResponseWire,
 	PluginHttpRedirectAction,
 	LogAccess,

@@ -436,6 +436,7 @@ export const CAPABILITY_LABELS: Record<string, MessageDescriptor> = {
 	"redirects:write": msg`Change where visitors are sent`,
 	"media:read": msg`Access your media library`,
 	"media:bytes:read": msg`Read media file contents`,
+	"wasm:execute": msg`Run WebAssembly modules`,
 	"media:metadata:write": msg`Edit media alt text, captions, and focal points`,
 	"media:write": msg`Upload and manage media`,
 	"users:read": msg`Read user accounts`,

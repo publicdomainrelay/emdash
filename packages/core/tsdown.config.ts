@@ -138,6 +138,7 @@ export default defineConfig({
 		"src/plugins/secret-redactor.ts",
 		// Binary-safe HTTP transport shared by sandbox runners.
 		"src/plugins/http-wire.ts",
+		"src/plugins/wasm.ts",
 		// Public source-exported subpaths -- compiled so consumers never
 		// type-check our raw .ts (avoids the dual-package identity hazard).
 		// UI runtime exports and the `*-admin.tsx` providers stay source:

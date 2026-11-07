@@ -48,6 +48,7 @@ export const CURRENT_PLUGIN_CAPABILITIES = [
 	"redirects:write",
 	"media:read",
 	"media:bytes:read",
+	"wasm:execute",
 	"media:metadata:write",
 	"media:write",
 	"users:read",
@@ -438,6 +439,7 @@ const declaredAccessSchema = z.object({
 		.optional(),
 	page: z.object({ fragments: accessConstraints.optional() }).optional(),
 	users: z.object({ read: accessConstraints.optional() }).optional(),
+	wasm: z.object({ execute: accessConstraints.optional() }).optional(),
 });
 
 // ── Main schema ─────────────────────────────────────────────────

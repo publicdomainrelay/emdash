@@ -120,6 +120,7 @@ import type {
 	CollectionSchemaInfo,
 	PluginContentCreateCallback,
 } from "./types.js";
+import { createInProcessWasmAccess } from "./wasm.js";
 
 export { createContentAccess } from "./content-access.js";
 
@@ -1823,6 +1824,8 @@ export class PluginContextFactory {
 			http = createHttpAccess(plugin.id, plugin.allowedHosts);
 		}
 
+		const wasm = capabilities.has("wasm:execute") ? createInProcessWasmAccess() : undefined;
+
 		// Capability-gated: users
 		let users: UserAccess | undefined;
 		if (capabilities.has("users:read")) {
@@ -1871,6 +1874,7 @@ export class PluginContextFactory {
 			redirects,
 			media,
 			http,
+			wasm,
 			log,
 			site: this.site,
 			url: this.urlHelper,

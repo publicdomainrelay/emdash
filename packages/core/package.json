@@ -228,6 +228,10 @@
     "./internal/plugins/http-wire": {
       "types": "./dist/plugins/http-wire.d.mts",
       "default": "./dist/plugins/http-wire.mjs"
+    },
+    "./internal/plugins/wasm": {
+      "types": "./dist/plugins/wasm.d.mts",
+      "default": "./dist/plugins/wasm.mjs"
     }
   },
   "imports": {
