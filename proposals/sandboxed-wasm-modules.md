@@ -98,7 +98,9 @@ This part is not core API. It is how the prototype integrations plugin uses the 
 
 - The record `com.publicdomainrelay.temp.wasm.module` holds `name`, a `module` blob (`application/wasm`), `abi: "emdash-wasm-json-v1"`, a strong reference to the `com.publicdomainrelay.temp.oauth.clientMetadata` record whose session it uses, and a list of `actions` (`entry` and `label`).
 - The plugin fetches the blob with `com.atproto.sync.getBlob`, checks the CID's SHA-256 multihash, and passes that digest as `sha256`.
-- The module returns `{ "calls": [{ "nsid": "...", "input": {} }] }`. The plugin performs each call with the user's session for that client metadata record. The authorization server already limits that session to the record's scopes.
+- The module returns `{ "calls": [{ "nsid": "...", "params": {}, "input": {} }], "next": "...", "state": {}, "result": {} }`. The plugin makes each call with the user's session for that client metadata record. The authorization server already limits that session to the record's scopes. The record may also list the NSIDs the module may call.
+- When `next` names another export, the plugin runs it with the call results and the returned `state`. This is how a module reads before it writes without host functions. Each result is `{ nsid, ok, output | error }`. The prototype caps a run at 8 rounds and 25 calls.
+- Besides the signed-in browser session, the prototype accepts atproto service auth for `com.publicdomainrelay.temp.wasm.run`, so a user's PDS can trigger a run through `atproto-proxy`. The plugin verifies the JWT itself, because sandboxed routes never see `Authorization`.
 
 ## Compatibility and migration
 
@@ -145,5 +147,5 @@ Each failure maps to a stable code. A timed-out Node worker is terminated and re
 
 ## Open questions
 
-- Should modules get a fixed set of host functions (for example a clock, or a controlled `fetch`)? This draft says no.
+- Should modules get a fixed set of host functions (for example a clock, or a controlled `fetch`)? This draft says no. Rounds driven by the plugin cover read-before-write without them. A synchronous `fetch` import would need JSPI or Asyncify on Workers.
 - Should limits be configurable per site?
