@@ -15,6 +15,7 @@ import { Buffer } from "node:buffer";
 
 import { normalizePluginCapabilities, type PluginManifest } from "emdash";
 import { generatePluginHttpWireRuntimeSource } from "emdash/internal/plugins/http-wire";
+import { WASM_LIMITS } from "emdash/internal/plugins/wasm";
 
 const TRAILING_SLASH_RE = /\/$/;
 const NEWLINE_RE = /[\n\r]/g;
@@ -104,6 +105,7 @@ export function generatePluginWrapper(manifest: PluginManifest, options: Wrapper
 	const hasSchemaRead = capabilities.includes("schema:read");
 	const hasBylinesRead = capabilities.includes("bylines:read");
 	const hasRevisionRead = capabilities.includes("content:revisions:read");
+	const hasWasmExecute = capabilities.includes("wasm:execute");
 	const httpWireRuntimeSource = generatePluginHttpWireRuntimeSource();
 
 	return `
@@ -302,6 +304,17 @@ function commentErrorDetails(value) {
 	};
 }
 
+function wasmErrorDetails(value) {
+	if (!value || typeof value !== "object" || value.name !== "WasmRunError" ||
+		typeof value.code !== "string" || !/^WASM_[A-Z_]+$/.test(value.code) ||
+		typeof value.message !== "string" || !value.message.startsWith(value.code + ": ")) return null;
+	return { name: "WasmRunError", code: value.code, message: value.message };
+}
+
+function wasmError(code, message) {
+	return Object.assign(new Error(code + ": " + message), { name: "WasmRunError", code });
+}
+
 function sandboxRouteErrorResponse(error) {
 	const details = sandboxRouteErrorDetails(error);
 	return details
@@ -353,6 +366,8 @@ async function bridgeCall(method, body) {
 			if (contentCreateDetails) {
 				throw Object.assign(new Error(contentCreateDetails.message), contentCreateDetails, { name: contentCreateDetails.code });
 			}
+			const wasmDetails = wasmErrorDetails(payload?.error);
+			if (wasmDetails) throw Object.assign(new Error(wasmDetails.message), wasmDetails);
 			const details = sandboxRouteErrorDetails(payload?.error);
 			if (details) {
 				const error = Object.assign(new Error(details.message), details, {
@@ -365,7 +380,8 @@ async function bridgeCall(method, body) {
 				sandboxRouteErrorDetails(error) ||
 				storageSerializationErrorDetails(error) ||
 				commentErrorDetails(error) ||
-				contentCreateErrorDetails(error)
+				contentCreateErrorDetails(error) ||
+				wasmErrorDetails(error)
 			) throw error;
 		}
 		throw new Error("Bridge call " + method + " failed: " + text);
@@ -629,6 +645,27 @@ function createContext(originHook, invocationId) {
 		send: (message) => bridgeCall("email/send", { message }),
 	} : undefined;
 
+	const wasm = ${hasWasmExecute} ? {
+		run: async (request) => {
+			const module = request?.module;
+			if (!(module instanceof Uint8Array)) throw wasmError("WASM_ABI_INVALID", "module must be a Uint8Array");
+			if (module.byteLength > ${WASM_LIMITS.moduleBytes}) {
+				throw wasmError("WASM_TOO_LARGE", "module exceeds ${WASM_LIMITS.moduleBytes} bytes");
+			}
+			let binary = "";
+			const chunkSize = 0x8000;
+			for (let offset = 0; offset < module.byteLength; offset += chunkSize) {
+				binary += String.fromCharCode(...module.subarray(offset, offset + chunkSize));
+			}
+			return bridgeCall("wasm/run", {
+				module: btoa(binary),
+				entry: request.entry,
+				input: request.input,
+				sha256: request.sha256,
+			});
+		},
+	} : undefined;
+
 	const cron = {
 		schedule: (name, opts) => bridgeCall("cron/schedule", { name, ...opts }),
 		cancel: (name) => bridgeCall("cron/cancel", { name }),
@@ -656,6 +693,7 @@ function createContext(originHook, invocationId) {
 		users,
 		comments,
 		email,
+		wasm,
 		cron,
 	};
 }
