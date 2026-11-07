@@ -1,3 +1,5 @@
+import { runInThisContext } from "node:vm";
+
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("cloudflare:workers", () => ({
@@ -49,7 +51,9 @@ function evaluatingLoader() {
 							.replace('import { WorkerEntrypoint } from "cloudflare:workers";', "")
 							.replace('import compiled from "./module.wasm";', "")
 							.replace("export default class WasmRunner", "return class WasmRunner");
-						const factory = new Function("WorkerEntrypoint", "compiled", source);
+						const factory = runInThisContext(
+							`(function (WorkerEntrypoint, compiled) {\n${source}\n})`,
+						);
 						const Runner = factory(
 							class {
 								env = {};
@@ -195,7 +199,7 @@ function wrapperEntrypoint(capabilities: string[]) {
 			},
 		},
 	};
-	const factory = new Function("WorkerEntrypoint", "pluginModule", source);
+	const factory = runInThisContext(`(function (WorkerEntrypoint, pluginModule) {\n${source}\n})`);
 	return factory(WorkerEntrypoint, pluginModule) as new (env: unknown) => {
 		invokeHook(name: string, event: unknown): Promise<unknown>;
 	};
