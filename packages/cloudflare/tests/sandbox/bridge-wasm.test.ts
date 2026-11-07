@@ -158,6 +158,12 @@ describe("PluginBridge.wasmRun", () => {
 			),
 		).rejects.toThrow(/^WASM_TIMEOUT: /);
 		await expect(
+			sandboxWasmRun(
+				{ module: ECHO_MODULE, entry: "echo" },
+				failing("Worker exceeded CPU limit of 5000 ms"),
+			),
+		).rejects.toThrow(/^WASM_TIMEOUT: /);
+		await expect(
 			sandboxWasmRun({ module: ECHO_MODULE, entry: "echo" }, failing("boom")),
 		).rejects.toThrow("WASM_TRAP: boom");
 	});

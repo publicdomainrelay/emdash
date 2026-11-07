@@ -9,7 +9,7 @@ import {
 
 import type { WorkerLoader } from "./types.js";
 
-const CPU_LIMIT_RE = /exceeded CPU time limit/i;
+const CPU_LIMIT_RE = /exceeded CPU (?:time )?limit/i;
 
 type WasmRunnerResult = { ok: true; output: string } | { ok: false; error: string };
 
