@@ -44,9 +44,11 @@ export interface PreparedWasmRun {
 
 const ENTRY_PATTERN = /^[A-Za-z_][A-Za-z0-9_]{0,63}$/;
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
+const WASM_ERROR_MESSAGE = /^(WASM_[A-Z_]+): ([\s\S]*)$/;
+const EMBEDDER_DISALLOWED = /disallowed by embedder/i;
 
 export async function sha256Hex(bytes: Uint8Array): Promise<string> {
-	const digest = await crypto.subtle.digest("SHA-256", bytes as Uint8Array<ArrayBuffer>);
+	const digest = await crypto.subtle.digest("SHA-256", new Uint8Array(bytes));
 	return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
@@ -80,13 +82,10 @@ export function runWasmJsonAbi(
 	inputJson: string,
 	limits: { memoryPages: number; outputBytes: number },
 ): string {
-	const fail = (code: string, message: string): never => {
-		const error = new Error(`${code}: ${message}`);
-		error.name = "WasmRunError";
-		throw error;
-	};
 	if (WebAssembly.Module.imports(compiled).length > 0) {
-		fail("WASM_IMPORTS_NOT_ALLOWED", "modules must not declare imports");
+		throw Object.assign(new Error("WASM_IMPORTS_NOT_ALLOWED: modules must not declare imports"), {
+			name: "WasmRunError",
+		});
 	}
 	const declared = new Map(
 		WebAssembly.Module.exports(compiled).map((item) => [item.name, item.kind]),
@@ -96,41 +95,70 @@ export function runWasmJsonAbi(
 		declared.get("alloc") !== "function" ||
 		declared.get(entry) !== "function"
 	) {
-		fail("WASM_ABI_INVALID", `module must export memory, alloc and ${entry}`);
+		throw Object.assign(
+			new Error(`WASM_ABI_INVALID: module must export memory, alloc and ${entry}`),
+			{ name: "WasmRunError" },
+		);
 	}
 	let instance: WebAssembly.Instance;
 	try {
 		instance = new WebAssembly.Instance(compiled, {});
 	} catch (error) {
-		return fail("WASM_TRAP", error instanceof Error ? error.message : String(error));
+		throw Object.assign(
+			new Error(`WASM_TRAP: ${error instanceof Error ? error.message : String(error)}`),
+			{ name: "WasmRunError" },
+		);
 	}
-	const exports = instance.exports as Record<string, unknown>;
-	const memory = exports.memory as WebAssembly.Memory;
-	const alloc = exports.alloc as (length: number) => number;
-	const run = exports[entry] as (pointer: number, length: number) => bigint;
+	const memory = instance.exports.memory;
+	const alloc = instance.exports.alloc;
+	const run = instance.exports[entry];
+	if (
+		!(memory instanceof WebAssembly.Memory) ||
+		typeof alloc !== "function" ||
+		typeof run !== "function"
+	) {
+		throw Object.assign(
+			new Error(`WASM_ABI_INVALID: module must export memory, alloc and ${entry}`),
+			{
+				name: "WasmRunError",
+			},
+		);
+	}
 	const pageBytes = 65536;
 	const input = new TextEncoder().encode(inputJson);
-	let packed: bigint;
+	let packed: unknown;
 	try {
-		const pointer = alloc(input.byteLength);
+		const pointer = Number(alloc(input.byteLength));
 		new Uint8Array(memory.buffer, pointer, input.byteLength).set(input);
 		packed = run(pointer, input.byteLength);
 	} catch (error) {
-		return fail("WASM_TRAP", error instanceof Error ? error.message : String(error));
+		throw Object.assign(
+			new Error(`WASM_TRAP: ${error instanceof Error ? error.message : String(error)}`),
+			{ name: "WasmRunError" },
+		);
 	}
 	if (memory.buffer.byteLength > limits.memoryPages * pageBytes) {
-		fail("WASM_TOO_LARGE", `memory exceeds ${limits.memoryPages} pages`);
+		throw Object.assign(new Error(`WASM_TOO_LARGE: memory exceeds ${limits.memoryPages} pages`), {
+			name: "WasmRunError",
+		});
 	}
 	if (typeof packed !== "bigint") {
-		fail("WASM_ABI_INVALID", `${entry} must return i64`);
+		throw Object.assign(new Error(`WASM_ABI_INVALID: ${entry} must return i64`), {
+			name: "WasmRunError",
+		});
 	}
 	const outputPointer = Number(BigInt.asUintN(64, packed) >> 32n);
 	const outputLength = Number(BigInt.asUintN(32, packed));
 	if (outputLength > limits.outputBytes) {
-		fail("WASM_OUTPUT_INVALID", `output exceeds ${limits.outputBytes} bytes`);
+		throw Object.assign(
+			new Error(`WASM_OUTPUT_INVALID: output exceeds ${limits.outputBytes} bytes`),
+			{ name: "WasmRunError" },
+		);
 	}
 	if (outputPointer + outputLength > memory.buffer.byteLength) {
-		fail("WASM_OUTPUT_INVALID", "output points outside memory");
+		throw Object.assign(new Error("WASM_OUTPUT_INVALID: output points outside memory"), {
+			name: "WasmRunError",
+		});
 	}
 	const output = new TextDecoder("utf-8", { fatal: true }).decode(
 		new Uint8Array(memory.buffer, outputPointer, outputLength).slice(),
@@ -138,7 +166,9 @@ export function runWasmJsonAbi(
 	try {
 		JSON.parse(output);
 	} catch {
-		fail("WASM_OUTPUT_INVALID", "output is not JSON");
+		throw Object.assign(new Error("WASM_OUTPUT_INVALID: output is not JSON"), {
+			name: "WasmRunError",
+		});
 	}
 	return output;
 }
@@ -148,11 +178,25 @@ export function generateWasmAbiRuntimeSource(): string {
 const WASM_LIMITS = ${JSON.stringify(WASM_LIMITS)};`;
 }
 
+const WASM_ERROR_CODES: ReadonlySet<string> = new Set<WasmErrorCode>([
+	"WASM_TOO_LARGE",
+	"WASM_DIGEST_MISMATCH",
+	"WASM_IMPORTS_NOT_ALLOWED",
+	"WASM_ABI_INVALID",
+	"WASM_TIMEOUT",
+	"WASM_TRAP",
+	"WASM_OUTPUT_INVALID",
+	"WASM_UNAVAILABLE",
+]);
+
+const isWasmErrorCode = (value: string): value is WasmErrorCode => WASM_ERROR_CODES.has(value);
+
 export function toWasmRunError(error: unknown): WasmRunError {
 	if (error instanceof WasmRunError) return error;
 	const message = error instanceof Error ? error.message : String(error);
-	const match = /^(WASM_[A-Z_]+): ([\s\S]*)$/.exec(message);
-	if (match) return new WasmRunError(match[1] as WasmErrorCode, match[2] ?? "");
+	const match = WASM_ERROR_MESSAGE.exec(message);
+	const code = match?.[1];
+	if (code && isWasmErrorCode(code)) return new WasmRunError(code, match?.[2] ?? "");
 	return new WasmRunError("WASM_TRAP", message);
 }
 
@@ -168,10 +212,10 @@ export function createInProcessWasmAccess(): WasmAccess {
 			let compiled = cache.get(prepared.sha256);
 			if (!compiled) {
 				try {
-					compiled = await WebAssembly.compile(prepared.module as Uint8Array<ArrayBuffer>);
+					compiled = await WebAssembly.compile(new Uint8Array(prepared.module));
 				} catch (error) {
 					const message = error instanceof Error ? error.message : String(error);
-					if (/disallowed by embedder/i.test(message))
+					if (EMBEDDER_DISALLOWED.test(message))
 						throw new WasmRunError("WASM_UNAVAILABLE", message);
 					throw new WasmRunError("WASM_ABI_INVALID", message);
 				}

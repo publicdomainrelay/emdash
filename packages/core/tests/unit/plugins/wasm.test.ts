@@ -1,3 +1,5 @@
+import { runInNewContext } from "node:vm";
+
 import { describe, expect, it } from "vitest";
 
 import {
@@ -61,10 +63,10 @@ describe("wasm:execute in-process", () => {
 	});
 
 	it("exposes the same runner as standalone source for isolates", async () => {
-		const factory = new Function(
-			`${generateWasmAbiRuntimeSource()}\nreturn { runWasmJsonAbi, WASM_LIMITS };`,
+		const { runWasmJsonAbi, WASM_LIMITS } = runInNewContext(
+			`${generateWasmAbiRuntimeSource()}\n({ runWasmJsonAbi, WASM_LIMITS });`,
+			{ WebAssembly, TextEncoder, TextDecoder },
 		);
-		const { runWasmJsonAbi, WASM_LIMITS } = factory();
 		const compiled = await WebAssembly.compile(ECHO_MODULE);
 		expect(JSON.parse(runWasmJsonAbi(compiled, "echo", '{"ok":true}', WASM_LIMITS))).toEqual({
 			ok: true,
