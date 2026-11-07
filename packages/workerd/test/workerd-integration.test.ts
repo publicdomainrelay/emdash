@@ -15,12 +15,14 @@ import {
 	SchemaRegistry,
 } from "emdash";
 import { BylineRepository, type RuntimeDependencies } from "emdash/internal/plugin-test-runtime";
+import { sha256Hex } from "emdash/internal/plugins/wasm";
 import { Kysely, SqliteDialect, type QueryId } from "kysely";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
 import { NodeSqliteCompatDatabase as Database } from "../../core/src/db/node-sqlite-compat.js";
 import { MiniflareDevRunner } from "../src/sandbox/dev-runner.js";
 import { WorkerdSandboxRunner } from "../src/sandbox/runner.js";
+import { ECHO_MODULE, IMPORTING_MODULE } from "./wasm-fixtures.js";
 
 vi.mock("virtual:emdash/config", () => ({ default: null }), { virtual: true });
 vi.mock("virtual:emdash/object-cache", () => ({ default: null }), { virtual: true });
@@ -258,6 +260,30 @@ export default {
 					settings: await ctx.settings.get("apiKey"),
 					alias: await ctx.kv.get("settings:apiKey")
 				};
+			}
+		}
+	}
+};
+`;
+
+const WASM_PLUGIN = `
+export default {
+	hooks: {},
+	routes: {
+		"run": {
+			handler: async (route, ctx) => {
+				if (!ctx.wasm) return { available: false };
+				try {
+					const output = await ctx.wasm.run({
+						module: new Uint8Array(route.input.module),
+						entry: "echo",
+						input: route.input.payload,
+						sha256: route.input.sha256,
+					});
+					return { available: true, output };
+				} catch (error) {
+					return { available: true, error: { name: error.name, code: error.code, message: error.message } };
+				}
 			}
 		}
 	}
@@ -878,6 +904,61 @@ describe.skipIf(!workerdAvailable)("WorkerdSandboxRunner integration", () => {
 		).rejects.toThrow(/not allowed to fetch from host/i);
 		expect(httpFetch).toHaveBeenCalledOnce();
 	}, 30_000);
+
+	it.each(["workerd", "miniflare"])(
+		"runs WebAssembly through ctx.wasm end to end (%s)",
+		async (runnerKind) => {
+			const sandbox =
+				runnerKind === "miniflare"
+					? new MiniflareDevRunner({ db })
+					: new WorkerdSandboxRunner({ db });
+			try {
+				const digest = await sha256Hex(ECHO_MODULE);
+				const plugin = await sandbox.load(
+					{
+						id: "wasm-runner",
+						version: "1.0.0",
+						capabilities: ["wasm:execute"],
+						allowedHosts: [],
+						storage: {},
+					},
+					WASM_PLUGIN,
+				);
+				const request = { method: "POST", url: "/api/run", headers: {} };
+				const payload = { status: "🦋", nested: [1, 2, 3] };
+				await expect(
+					plugin.invokeRoute("run", { module: [...ECHO_MODULE], payload, sha256: digest }, request),
+				).resolves.toEqual({ available: true, output: payload });
+				await expect(
+					plugin.invokeRoute("run", { module: [...IMPORTING_MODULE], payload: null }, request),
+				).resolves.toEqual({
+					available: true,
+					error: {
+						name: "WasmRunError",
+						code: "WASM_IMPORTS_NOT_ALLOWED",
+						message: "WASM_IMPORTS_NOT_ALLOWED: modules must not declare imports",
+					},
+				});
+
+				const denied = await sandbox.load(
+					{
+						id: "wasm-denied",
+						version: "1.0.0",
+						capabilities: [],
+						allowedHosts: [],
+						storage: {},
+					},
+					WASM_PLUGIN,
+				);
+				await expect(
+					denied.invokeRoute("run", { module: [...ECHO_MODULE], payload: 1 }, request),
+				).resolves.toEqual({ available: false });
+			} finally {
+				await sandbox.terminateAll();
+			}
+		},
+		30_000,
+	);
 
 	it.each(["workerd", "bypass", "miniflare"])(
 		"installs a config sandbox once and schedules cron during activation (%s)",

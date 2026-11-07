@@ -62,7 +62,15 @@ import type {
 	TaxonomyAccessWithWrite,
 } from "emdash";
 import { createKVAccess } from "emdash/internal/plugins/host";
+import {
+	prepareWasmRun,
+	toWasmRunError,
+	WASM_LIMITS,
+	WasmRunError,
+} from "emdash/internal/plugins/wasm";
 import type { Kysely } from "kysely";
+
+import { getDefaultWasmExecutor, type WasmExecutor } from "./wasm-executor.js";
 
 const CONTENT_CREATE_ERROR_CODES = new Set([
 	"CONFLICT",
@@ -200,6 +208,7 @@ export interface BridgeHandlerOptions {
 	httpFetch?: typeof fetch;
 	/** Storage for media uploads. Optional; media/upload throws if not provided. */
 	storage?: BridgeStorage | null;
+	wasmExecutor?: WasmExecutor;
 }
 
 type RedirectBridgeResult<T> =
@@ -338,6 +347,12 @@ export function createBridgeHandler(
 						error: { code: error.code, message: error.message },
 					},
 				});
+			}
+			if (error instanceof WasmRunError) {
+				return Response.json(
+					{ error: { name: "WasmRunError", code: error.code, message: error.message } },
+					{ status: 400 },
+				);
 			}
 			const message = error instanceof Error ? error.message : "Internal error";
 			return new Response(JSON.stringify({ error: message }), {
@@ -824,6 +839,10 @@ async function dispatch(
 		case "http/fetch":
 			requireCapability(opts, "network:request");
 			return httpFetch(requireString(body, "url"), body.init, opts);
+
+		case "wasm/run":
+			requireCapability(opts, "wasm:execute");
+			return wasmRun(body, opts);
 
 		// ── Email ───────────────────────────────────────────────────────
 		case "email/send": {
@@ -2215,6 +2234,45 @@ function unmarshalRequestInit(
 		init.body = Buffer.from(marshaled.body, "base64");
 	}
 	return init;
+}
+
+const BASE64_RE = /^[A-Za-z0-9+/]*={0,2}$/;
+const MAX_WASM_MODULE_BASE64_LENGTH = Math.ceil(WASM_LIMITS.moduleBytes / 3) * 4;
+
+async function wasmRun(
+	body: Record<string, unknown>,
+	opts: BridgeHandlerOptions,
+): Promise<unknown> {
+	try {
+		const encoded = body.module;
+		if (typeof encoded !== "string") {
+			throw new WasmRunError("WASM_ABI_INVALID", "module must be base64");
+		}
+		if (encoded.length > MAX_WASM_MODULE_BASE64_LENGTH) {
+			throw new WasmRunError("WASM_TOO_LARGE", `module exceeds ${WASM_LIMITS.moduleBytes} bytes`);
+		}
+		if (encoded.length % 4 !== 0 || !BASE64_RE.test(encoded)) {
+			throw new WasmRunError("WASM_ABI_INVALID", "module must be base64");
+		}
+		const sha256 = body.sha256 ?? undefined;
+		if (sha256 !== undefined && typeof sha256 !== "string") {
+			throw new WasmRunError("WASM_DIGEST_MISMATCH", "sha256 must be a hex string");
+		}
+		if (typeof body.entry !== "string") {
+			throw new WasmRunError("WASM_ABI_INVALID", "entry must be an export name");
+		}
+		const prepared = await prepareWasmRun({
+			module: new Uint8Array(Buffer.from(encoded, "base64")),
+			entry: body.entry,
+			input: body.input,
+			sha256,
+		});
+		const executor = opts.wasmExecutor ?? getDefaultWasmExecutor();
+		const output: unknown = JSON.parse(await executor.run(prepared));
+		return output;
+	} catch (error) {
+		throw toWasmRunError(error);
+	}
 }
 
 async function httpFetch(
